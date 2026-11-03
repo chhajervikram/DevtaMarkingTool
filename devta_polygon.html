@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>45 Devta Marking - Polygon Boundary + Shakti Chakra</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;background:#f4f1ea;color:#2a2118}
+header{background:#5b2a12;color:#fff;padding:10px 16px}
+header h1{margin:0;font-size:18px}
+header small{opacity:.8}
+.wrap{display:flex;gap:14px;padding:14px;flex-wrap:wrap;align-items:flex-start}
+aside{flex:0 0 300px;background:#fff;border:1px solid #d9cfbf;border-radius:8px;padding:12px}
+main{flex:1 1 560px;min-width:300px}
+aside h3{margin:12px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#8a4b1f}
+aside h3:first-child{margin-top:0}
+label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:4px 0}
+label input[type=number],label input[type=text],label select{width:130px;padding:3px 5px}
+label.chk{justify-content:flex-start}
+button{padding:5px 10px;margin:3px 3px 0 0;border:1px solid #8a4b1f;background:#fff;color:#5b2a12;border-radius:5px;cursor:pointer}
+button:hover{background:#f6e7d6}
+button:disabled{opacity:.45;cursor:not-allowed}
+canvas#cv{width:100%;max-width:900px;height:auto;background:#fff;border:1px solid #d9cfbf;border-radius:8px;touch-action:none;cursor:crosshair}
+#live{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:#fff;border:1px solid #d9cfbf;border-radius:6px;padding:5px 8px;margin:6px 0;max-width:900px;min-height:28px}
+#out{max-width:900px;margin-top:8px}
+table{border-collapse:collapse;width:100%;background:#fff;margin:6px 0 14px;font-size:12.5px}
+th,td{border:1px solid #d9cfbf;padding:4px 6px;text-align:left;vertical-align:top}
+th{background:#f1e5d3}
+.note{font-size:12px;color:#6b5a48;margin-top:6px}
+.x{color:#b00020;cursor:pointer;font-weight:bold}
+#bbar{display:none;max-width:900px;margin-bottom:6px;padding:8px 10px;background:#fff7e0;border:2px solid #e0a800;border-radius:8px;align-items:center;gap:10px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header><h1>45 Devta Marking &ndash; Polygon Boundary + Shakti Chakra</h1>
+<small>Area-centroid centre &middot; 32 wedges (E1&ndash;N8) &middot; inner 12 + Brahma &middot; works offline</small></header>
+
+<div class="wrap">
+<aside>
+  <h3>1. Plan image</h3>
+  <label>Plan image <input type="file" id="img" accept="image/*" style="width:150px"></label>
+  <label>Image opacity <input type="range" id="op" min="0.1" max="1" step="0.05" value="0.8"></label>
+  <label class="chk"><input type="checkbox" id="autoDet" checked> Auto-detect a starting rectangle on upload</label>
+  <label>Sensitivity <input type="range" id="sens" min="5" max="95" step="1" value="50"></label>
+  <button id="det">Auto-detect rectangle</button>
+
+  <h3>1b. Rotate floor plan</h3>
+  <label>Rotation (&deg;) <input type="number" id="rot" value="0" min="-180" max="180" step="0.5"></label>
+  <input type="range" id="rotR" min="-180" max="180" step="0.5" value="0" style="width:100%">
+  <div>
+    <button class="rb" data-d="-90">&#8634; 90&deg;</button><button class="rb" data-d="90">&#8635; 90&deg;</button>
+    <button class="rb" data-d="-0.5">&minus;0.5</button><button class="rb" data-d="0.5">+0.5</button>
+    <button class="rb" data-set="0">Reset</button><button id="northUp">North up</button>
+  </div>
+  <div class="note" style="margin-top:4px">Rotates the plan image together with the boundary and marks. North keeps pointing the same real way on the plan (the North angle updates). &ldquo;North up&rdquo; turns the plan so North is at the top.</div>
+
+  <h3>2. Boundary (any shape)</h3>
+  <button id="editBtn">Edit boundary</button>
+  <button id="closeBtn">Close shape</button>
+  <button id="undoBtn">Undo point</button>
+  <button id="clrB">Clear boundary</button>
+  <div class="note" style="margin-top:4px">In boundary mode: click to add corners; click the first corner or press Close shape to finish. Drag a corner to move it; click an edge to add a corner; Shift+click a corner to delete it.</div>
+  <label>Real width of boundary (ft) <input type="number" id="ftW" value="0" min="0" step="0.1"></label>
+  <div class="note" style="margin-top:0">Optional. Sets the scale once (stays fixed when you rotate or edit). 0 = show % only.</div>
+
+  <h3>3. Shakti Chakra North</h3>
+  <label>North angle (&deg;) <input type="number" id="alpha" value="0" min="0" max="359.5" step="0.5"></label>
+  <input type="range" id="alphaR" min="0" max="359.5" step="0.5" value="0" style="width:100%">
+  <div>
+    <button class="nb" data-set="0">N top</button><button class="nb" data-set="90">N right</button><button class="nb" data-set="180">N bottom</button><button class="nb" data-set="270">N left</button>
+    <button class="nb" data-d="-1">&minus;1</button><button class="nb" data-d="1">+1</button>
+  </div>
+  <div class="note" style="margin-top:4px">Angle of North clockwise from the TOP of the plan. Type it, use the slider, drag the red <b>N</b> handle on the plan, or use mode &ldquo;Set North&rdquo;.</div>
+
+  <h3>4. Centre &amp; rings</h3>
+  <label class="chk"><input type="checkbox" id="manC"> Manual centre (drag the black dot)</label>
+  <label>Brahma radius (fraction) <input type="number" id="bR" value="0.333" min="0.05" max="0.9" step="0.01"></label>
+  <label>Inner ring outer radius <input type="number" id="iR" value="0.778" min="0.1" max="0.99" step="0.01"></label>
+  <div class="note" style="margin-top:0">Fractions of the distance from the centre to the boundary in each direction. Default 1/3 and 7/9 (the 9&times;9 Mandala proportions).</div>
+
+  <h3>5. Display</h3>
+  <label>Region labels <select id="lblMode"><option value="num">Numbers</option><option value="name">Numbers + names</option><option value="none">None</option></select></label>
+  <label class="chk"><input type="checkbox" id="showChakra" checked> Shakti Chakra (16 zones)</label>
+  <label class="chk"><input type="checkbox" id="show32"> 32-sector codes (E1&hellip;N8)</label>
+  <label>Chakra size <input type="range" id="ck" min="0.3" max="1" step="0.02" value="0.9"></label>
+
+  <h3>6. Marking</h3>
+  <label>Mode <select id="mode">
+    <option value="boundary">Boundary (draw / edit)</option>
+    <option value="north">Set North (click / drag)</option>
+    <option value="point">Mark point (click)</option>
+    <option value="room">Mark room (drag rectangle)</option></select></label>
+  <label>Type <select id="kind"><option>Main door</option><option>Door</option><option>Kitchen</option><option>Toilet</option><option>Staircase</option><option>Pooja</option><option>Bedroom</option><option>Living</option><option>Other</option></select></label>
+  <label>Label <input type="text" id="lbl" placeholder="auto"></label>
+  <button id="clr">Clear marks</button>
+  <button id="png">Save PNG</button>
+  <button id="csv">Save CSV</button>
+  <button id="pdf" style="background:#5b2a12;color:#fff">Save PDF report</button>
+</aside>
+
+<main>
+  <div id="bbar">
+    <span id="btxt" style="flex:1 1 260px"></span>
+    <button id="okB" style="background:#1b7f3b;color:#fff;border-color:#1b7f3b;font-weight:bold;padding:8px 18px;font-size:15px">&#10004; OK &ndash; Calculate Devta marking</button>
+  </div>
+  <canvas id="cv" width="900" height="900"></canvas>
+  <div id="live">Upload a plan (or draw on the blank canvas), mark the boundary, then press OK.</div>
+  <div id="out"></div>
+  <div class="note">
+    Method: the centre is the area centroid of the boundary polygon. In every direction the distance from the centre to the boundary is split into
+    Brahma (inner), the inner ring (12 Devtas) and the outer band (32 Devtas). The outer 32 are 11.25&deg; wedges numbered clockwise from NE:
+    E1&ndash;E8 = 14&ndash;21, S1&ndash;S8 = 22&ndash;29, W1&ndash;W8 = 30&ndash;37, N1&ndash;N8 = 38&ndash;45 (E1 starts at 45&deg; from North).
+    The inner ring uses the same compass sectors: each side Devta spans &plusmn;26.565&deg; around its cardinal direction, and each corner pair splits at the diagonal.
+    Names follow your reference sheet; edit <code>NAMES</code> in the script to change spelling.
+  </div>
+</main>
+</div>
+
+<script>
+// ===== CORE START =====
+const NAMES = ["", "Bramha","Budhar","Aryaman","Vivisvan","Mitra","Aapaha","Aapahavatsa","Savita","Savitra","Indra","Jaya","Rudra","Rajaksma",
+"Shikhi","Parjanya","Jayant","Mahendra","Surya","Satya","Bhrisha","Akash",
+"Anil","Pusha","Vitatha","Grihakshat","Yama","Gandharv","Bhringraj","Mrigah",
+"Pitra","Dauwarik","Sugreev","Pushpdant","Varun","Asur","Shosha","Papayakshma",
+"Roga","Naga","Mukhya","Bhallat","Soma","Bhujag","Aditi","Diti"];
+function polyStats(P) {
+  let A = 0, cx = 0, cy = 0;
+  for (let i = 0; i < P.length; i++) {
+    const p = P[i], q = P[(i + 1) % P.length], cr = p.x * q.y - q.x * p.y;
+    A += cr; cx += (p.x + q.x) * cr; cy += (p.y + q.y) * cr;
+  }
+  A /= 2;
+  if (Math.abs(A) < 1e-9) return { area: 0, x: P[0].x, y: P[0].y };
+  return { area: Math.abs(A), x: cx / (6 * A), y: cy / (6 * A) };
+}
+function pip(P, x, y) {
+  let ins = false;
+  for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+    const a = P[i], b = P[j];
+    if ((a.y > y) !== (b.y > y) && x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x) ins = !ins;
+  }
+  return ins;
+}
+// distance from centre C to the boundary along each 0.25-degree screen direction (clockwise from "up")
+function buildRT(P, C) {
+  const RT = new Float64Array(1440), n = P.length;
+  for (let a = 0; a < 1440; a++) {
+    const g = a / 4 * Math.PI / 180, dx = Math.sin(g), dy = -Math.cos(g);
+    let best = 0;
+    for (let k = 0; k < n; k++) {
+      const p = P[k], q = P[(k + 1) % n], ex = q.x - p.x, ey = q.y - p.y, den = dx * ey - dy * ex;
+      if (Math.abs(den) < 1e-12) continue;
+      const rx = p.x - C.x, ry = p.y - C.y, t = (rx * ey - ry * ex) / den, u = (rx * dy - ry * dx) / den;
+      if (t > 1e-9 && u >= 0 && u <= 1 && t > best) best = t;
+    }
+    RT[a] = best || 1e-9;
+  }
+  return RT;
+}
+// beta = bearing from North (deg, clockwise); rho = distance / boundary distance
+function regionId(beta, rho, B, I) {
+  if (rho <= B) return 1;
+  const b = ((beta % 360) + 360) % 360;
+  if (rho <= I) {
+    if (b >= 333.435 || b < 26.565) return 2;
+    if (b >= 63.435 && b < 116.565) return 3;
+    if (b >= 153.435 && b < 206.565) return 4;
+    if (b >= 243.435 && b < 296.565) return 5;
+    if (b < 45) return 6; if (b < 63.435) return 7;
+    if (b < 135) return 8; if (b < 153.435) return 9;
+    if (b < 225) return 10; if (b < 243.435) return 11;
+    if (b < 315) return 12; return 13;
+  }
+  return 14 + Math.floor((((b - 45) % 360) + 360) % 360 / 11.25);
+}
+// ===== CORE END =====
+
+const ZONES = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+const RAD = Math.PI / 180;
+let world = { w: 1000, h: 800 }, bgImg = null, poly = [], closed = false, confirmed = false;
+let VW = { sc: 1, ox: 0, oy: 0 }, alpha = 0, manualC = null, G = null, drag = null, TIP = null, counter = 0, HI = false, baseImg = null, rot = 0, ftScale = 0;
+const pts = [], rooms = [];
+
+// ---------- view helpers ----------
+function setView() { const sc = Math.min(860 / world.w, 860 / world.h); VW = { sc, ox: (900 - world.w * sc) / 2, oy: (900 - world.h * sc) / 2 }; }
+const toScr = (x, y) => [VW.ox + x * VW.sc, VW.oy + y * VW.sc];
+const toWorld = (sx, sy) => [(sx - VW.ox) / VW.sc, (sy - VW.oy) / VW.sc];
+function evPos(e) { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * 900 / r.width, (e.clientY - r.top) * 900 / r.height]; }
+const clampW = (x, y) => [Math.max(0, Math.min(world.w, x)), Math.max(0, Math.min(world.h, y))];
+const norm360 = a => ((a % 360) + 360) % 360;
+const zoneOf = b => ZONES[Math.floor(((norm360(b) + 11.25) % 360) / 22.5)];
+function sectorCode(b) { const j = Math.floor(norm360(norm360(b) - 45) / 11.25); return "ESWN"[Math.floor(j / 8)] + (j % 8 + 1); }
+
+// ---------- geometry cache ----------
+function prep() {
+  G = null;
+  if (!closed || poly.length < 3) return;
+  const st = polyStats(poly);
+  if (st.area <= 0) return;
+  let C = { x: st.x, y: st.y };
+  if ($("manC").checked) { if (!manualC) manualC = { x: C.x, y: C.y }; C = manualC; } else manualC = null;
+  const RT = buildRT(poly, C);
+  let minx = 1e12, maxx = -1e12; for (const p of poly) { minx = Math.min(minx, p.x); maxx = Math.max(maxx, p.x); }
+  G = { C, RT, rmin: Math.min(...RT), area: st.area, ft: ftScale,
+        B: Math.min(0.95, Math.max(0.02, +$("bR").value || 0.333)), I: Math.min(0.99, Math.max(0.05, +$("iR").value || 0.778)) };
+  if (G.I < G.B) G.I = G.B;
+}
+function regionAt(wx, wy) {
+  if (!G || !pip(poly, wx, wy)) return null;
+  const dx = wx - G.C.x, dy = wy - G.C.y, dist = Math.hypot(dx, dy);
+  let ga = Math.atan2(dx, -dy) / RAD; if (ga < 0) ga += 360;
+  const beta = norm360(ga - alpha);
+  if (dist < 1e-9) return { id: 1, beta, rho: 0 };
+  const rho = dist / G.RT[Math.round(ga * 4) % 1440];
+  return { id: regionId(beta, rho, G.B, G.I), beta, rho };
+}
+const areaStr = (u2) => G && G.ft ? (u2 * G.ft * G.ft).toFixed(1) : "-";
+
+// ---------- region raster ----------
+function colorOf(id) {
+  if (id === 1) return [255, 200, 40];
+  if (id <= 5) return [90, 170, 90];
+  if (id <= 13) return [150, 205, 110];
+  return ((id - 14) % 2) ? [80, 140, 215] : [125, 180, 235];
+}
+function computeRegions(step) {
+  const w = Math.ceil(900 / step), h = Math.ceil(900 / step);
+  const ids = new Uint8Array(w * h), cnt = new Float64Array(46), sxA = new Float64Array(46), syA = new Float64Array(46);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const sx = i * step + step / 2, sy = j * step + step / 2, wx = (sx - VW.ox) / VW.sc, wy = (sy - VW.oy) / VW.sc;
+    if (!pip(poly, wx, wy)) continue;
+    const dx = wx - G.C.x, dy = wy - G.C.y, dist = Math.hypot(dx, dy);
+    let id = 1;
+    if (dist > 1e-9) {
+      let ga = Math.atan2(dx, -dy) / RAD; if (ga < 0) ga += 360;
+      id = regionId(ga - alpha, dist / G.RT[Math.round(ga * 4) % 1440], G.B, G.I);
+    }
+    ids[j * w + i] = id; cnt[id]++; sxA[id] += sx; syA[id] += sy;
+  }
+  return { ids, w, h, cnt, sxA, syA, step };
+}
+function drawRegions(R) {
+  const off = document.createElement("canvas"); off.width = R.w; off.height = R.h;
+  const x = off.getContext("2d"), im = x.createImageData(R.w, R.h), d = im.data;
+  for (let j = 0; j < R.h; j++) for (let i = 0; i < R.w; i++) {
+    const id = R.ids[j * R.w + i]; if (!id) continue;
+    const p = (j * R.w + i) * 4, rt = i + 1 < R.w ? R.ids[j * R.w + i + 1] : 0, dn = j + 1 < R.h ? R.ids[(j + 1) * R.w + i] : 0;
+    if ((rt && rt !== id) || (dn && dn !== id)) { d[p] = 20; d[p+1] = 40; d[p+2] = 210; d[p+3] = 255; }
+    else { const c = colorOf(id); d[p] = c[0]; d[p+1] = c[1]; d[p+2] = c[2]; d[p+3] = 80; }
+  }
+  x.putImageData(im, 0, 0);
+  ctx.imageSmoothingEnabled = false; ctx.drawImage(off, 0, 0, 900, 900); ctx.imageSmoothingEnabled = true;
+  const mode = $("lblMode").value;
+  if (mode === "none") return;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (let id = 1; id <= 45; id++) {
+    if (!R.cnt[id]) continue;
+    const mx = R.sxA[id] / R.cnt[id], my = R.syA[id] / R.cnt[id];
+    ctx.fillStyle = "#c00018"; ctx.font = "bold 12px system-ui"; ctx.fillText(id, mx, my);
+    if (mode === "name" && R.cnt[id] * R.step * R.step > 1400) { ctx.fillStyle = "#222"; ctx.font = "10px system-ui"; ctx.fillText(NAMES[id], mx, my + 12); }
+  }
+}
+
+// ---------- drawing ----------
+function draw() {
+  TIP = null; setView();
+  ctx.clearRect(0, 0, 900, 900); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, 900, 900);
+  if (bgImg) { ctx.globalAlpha = +$("op").value; ctx.drawImage(bgImg, VW.ox, VW.oy, world.w * VW.sc, world.h * VW.sc); ctx.globalAlpha = 1; }
+  else { ctx.strokeStyle = "#e3dccf"; ctx.strokeRect(VW.ox, VW.oy, world.w * VW.sc, world.h * VW.sc); }
+  prep();
+  if (G && confirmed) drawRegions(computeRegions(HI ? 1 : 2));
+  // boundary
+  if (poly.length) {
+    ctx.beginPath(); poly.forEach((p, i) => { const [x, y] = toScr(p.x, p.y); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    if (closed) ctx.closePath();
+    ctx.strokeStyle = "#e00"; ctx.lineWidth = 3; ctx.stroke();
+    if (!HI && ($("mode").value === "boundary" || !confirmed)) poly.forEach((p, i) => {
+      const [x, y] = toScr(p.x, p.y); ctx.fillStyle = i === 0 && !closed ? "#1b7f3b" : "#fff"; ctx.strokeStyle = "#e00"; ctx.lineWidth = 2;
+      ctx.fillRect(x - 5, y - 5, 10, 10); ctx.strokeRect(x - 5, y - 5, 10, 10);
+    });
+  }
+  if (G && $("showChakra").checked) drawChakra();
+  // marks
+  for (const m of rooms) {
+    ctx.beginPath(); m.poly.forEach((p, i) => { const [x, y] = toScr(p.x, p.y); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.closePath();
+    ctx.fillStyle = "rgba(200,40,80,.15)"; ctx.strokeStyle = "#c82850"; ctx.lineWidth = 2; ctx.fill(); ctx.stroke();
+    const [lx, ly] = toScr(m.poly[0].x, m.poly[0].y);
+    ctx.fillStyle = "#c82850"; ctx.font = "bold 12px system-ui"; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText(m.label || "", lx + 4, ly + 3);
+  }
+  if (drag && drag.t === "room") {
+    const m = drag.rect, [x0, y0] = toScr(Math.min(m.x0, m.x1), Math.min(m.y0, m.y1)), [x1, y1] = toScr(Math.max(m.x0, m.x1), Math.max(m.y0, m.y1));
+    ctx.strokeStyle = "#c82850"; ctx.setLineDash([5, 4]); ctx.strokeRect(x0, y0, x1 - x0, y1 - y0); ctx.setLineDash([]);
+  }
+  for (const p of pts) {
+    const [x, y] = toScr(p.x, p.y); ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fillStyle = "#c82850"; ctx.fill();
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = "#c82850"; ctx.font = "bold 12px system-ui"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(p.label, x + 9, y);
+  }
+  if (G) { const [x, y] = toScr(G.C.x, G.C.y); ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fillStyle = "#000"; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke(); }
+}
+function drawChakra() {
+  const [cx, cy] = toScr(G.C.x, G.C.y), Rc = G.rmin * VW.sc * (+$("ck").value);
+  const dir = (beta, r) => { const g = (beta + alpha) * RAD; return [cx + r * Math.sin(g), cy - r * Math.cos(g)]; };
+  ctx.lineWidth = 1.2; ctx.strokeStyle = "rgba(160,30,30,.8)";
+  ctx.beginPath(); ctx.arc(cx, cy, Rc, 0, 7); ctx.stroke();
+  for (let i = 0; i < 16; i++) { const [x, y] = dir(i * 22.5 - 11.25, Rc); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x, y); ctx.stroke(); }
+  ctx.fillStyle = "#a01e1e"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (let i = 0; i < 16; i++) { const [x, y] = dir(i * 22.5, Rc * 0.72); ctx.font = (i % 4 === 0 ? "bold 14px" : "11px") + " system-ui"; ctx.fillText(ZONES[i], x, y); }
+  if ($("show32").checked) {
+    ctx.strokeStyle = "rgba(30,60,160,.85)"; ctx.fillStyle = "#1e3ca0"; ctx.font = "9px system-ui";
+    for (let j = 0; j < 32; j++) {
+      const [x1, y1] = dir(45 + j * 11.25, Rc * 0.86), [x2, y2] = dir(45 + j * 11.25, Rc);
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      const [tx, ty] = dir(45 + (j + 0.5) * 11.25, Rc * 0.93); ctx.fillText("ESWN"[Math.floor(j / 8)] + (j % 8 + 1), tx, ty);
+    }
+    ctx.beginPath(); ctx.arc(cx, cy, Rc * 0.86, 0, 7); ctx.stroke();
+  }
+  const [ax, ay] = dir(0, Rc);
+  ctx.strokeStyle = "#d00"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ax, ay); ctx.stroke();
+  ctx.beginPath(); ctx.arc(ax, ay, 11, 0, 7); ctx.fillStyle = "#d00"; ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.font = "bold 13px system-ui"; ctx.fillText("N", ax, ay + 1);
+  TIP = [ax, ay];
+}
+
+// ---------- North ----------
+function setAlpha(a) {
+  alpha = norm360(a); $("alpha").value = alpha; $("alphaR").value = alpha; refresh();
+}
+function setNorthFrom(sx, sy) {
+  if (!G) return;
+  const [cx, cy] = toScr(G.C.x, G.C.y);
+  setAlpha(Math.round(norm360(Math.atan2(sx - cx, -(sy - cy)) / RAD) * 2) / 2);
+}
+$("alpha").addEventListener("input", () => setAlpha(+$("alpha").value || 0));
+$("alphaR").addEventListener("input", () => setAlpha(+$("alphaR").value || 0));
+document.querySelectorAll(".nb").forEach(b => b.onclick = () => setAlpha(b.dataset.set !== undefined ? +b.dataset.set : alpha + +b.dataset.d));
+
+// ---------- boundary state / OK bar ----------
+function updateBar() {
+  const show = poly.length > 0 && !confirmed;
+  $("bbar").style.display = show ? "flex" : "none";
+  $("btxt").innerHTML = closed
+    ? "<b>Adjust the boundary</b> (drag corners, click an edge to add a corner, Shift+click to delete) &ndash; then press OK."
+    : "<b>Draw the boundary</b>: click each corner of the plan, then click the green first corner (or press Close shape).";
+  $("okB").disabled = !(closed && poly.length >= 3);
+}
+function touched() { confirmed = false; refresh(); }
+$("okB").onclick = () => {
+  if (!(closed && poly.length >= 3)) return;
+  confirmed = true; $("mode").value = "point"; refresh();
+  $("live").textContent = "✔ Boundary confirmed - Devta marking calculated below. Click the plan to mark doors, or drag rooms.";
+  $("out").scrollIntoView({ behavior: "smooth", block: "start" });
+};
+$("editBtn").onclick = () => { $("mode").value = "boundary"; refresh(); };
+$("closeBtn").onclick = () => { if (poly.length >= 3) { closed = true; touched(); } };
+$("undoBtn").onclick = () => { if (poly.length) { poly.pop(); if (poly.length < 3) closed = false; touched(); } };
+$("clrB").onclick = () => { poly = []; closed = false; manualC = null; touched(); };
+
+// ---------- auto-detect starting rectangle ----------
+function detectRect() {
+  if (!bgImg) return null;
+  const sc = Math.min(1, 900 / Math.max(bgImg.width, bgImg.height));
+  const w = Math.max(1, Math.round(bgImg.width * sc)), h = Math.max(1, Math.round(bgImg.height * sc));
+  const o = document.createElement("canvas"); o.width = w; o.height = h;
+  const x = o.getContext("2d", { willReadFrequently: true });
+  x.fillStyle = "#fff"; x.fillRect(0, 0, w, h); x.drawImage(bgImg, 0, 0, w, h);
+  const d = x.getImageData(0, 0, w, h).data, hist = new Map();
+  for (let i = 0; i < d.length; i += 4) { const k = ((d[i] >> 4) << 8) | ((d[i+1] >> 4) << 4) | (d[i+2] >> 4); hist.set(k, (hist.get(k) || 0) + 1); }
+  let best = 0, bc = -1; for (const [k, v] of hist) if (v > bc) { bc = v; best = k; }
+  const br = ((best >> 8) & 15) * 16 + 8, bg = ((best >> 4) & 15) * 16 + 8, bb = (best & 15) * 16 + 8, thr = 200 - (+$("sens").value) * 1.8;
+  const rowInk = new Array(h).fill(0), colInk = new Array(w).fill(0);
+  for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
+    const i = (yy * w + xx) * 4;
+    if (Math.abs(d[i] - br) + Math.abs(d[i+1] - bg) + Math.abs(d[i+2] - bb) > thr) { rowInk[yy]++; colInk[xx]++; }
+  }
+  const minRow = Math.max(2, 0.012 * w), minCol = Math.max(2, 0.012 * h);
+  const okRow = yy => rowInk[yy] >= minRow && !(rowInk[yy] > 0.92 * w && (yy < 0.03 * h || yy > 0.97 * h));
+  const okCol = xx => colInk[xx] >= minCol && !(colInk[xx] > 0.92 * h && (xx < 0.03 * w || xx > 0.97 * w));
+  let y0 = 0, y1 = h - 1, x0 = 0, x1 = w - 1;
+  while (y0 < h && !okRow(y0)) y0++; while (y1 > y0 && !okRow(y1)) y1--;
+  while (x0 < w && !okCol(x0)) x0++; while (x1 > x0 && !okCol(x1)) x1--;
+  if (y0 >= y1 || x0 >= x1) { y0 = 0; y1 = h - 1; x0 = 0; x1 = w - 1; }
+  const fx = bgImg.width / w, fy = bgImg.height / h;
+  return { x0: x0 * fx, y0: y0 * fy, x1: (x1 + 1) * fx, y1: (y1 + 1) * fy };
+}
+function applyDetect() {
+  const r = detectRect(); if (!r) return;
+  poly = [{ x: r.x0, y: r.y0 }, { x: r.x1, y: r.y0 }, { x: r.x1, y: r.y1 }, { x: r.x0, y: r.y1 }]; closed = true; manualC = null;
+  $("mode").value = "boundary"; touched();
+}
+$("det").onclick = applyDetect;
+$("sens").addEventListener("change", () => { if (bgImg && poly.length === 4) applyDetect(); });
+$("img").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const im = new Image();
+  im.onload = () => {
+    const k = Math.min(1, 2000 / Math.max(im.width, im.height)), bc = document.createElement("canvas");
+    bc.width = Math.round(im.width * k); bc.height = Math.round(im.height * k); bc.getContext("2d").drawImage(im, 0, 0, bc.width, bc.height);
+    baseImg = bc; bgImg = bc; rot = 0; $("rot").value = 0; $("rotR").value = 0; world = { w: bc.width, h: bc.height }; poly = []; closed = false; confirmed = false; manualC = null; pts.length = 0; rooms.length = 0;
+    $("mode").value = "boundary";
+    if ($("autoDet").checked) applyDetect(); else refresh();
+  };
+  im.src = URL.createObjectURL(f);
+};
+
+// ---------- pointer handling ----------
+const dist2 = (a, b, c, d) => Math.hypot(a - c, b - d);
+function segDist(px, py, ax, ay, bx, by) {
+  const vx = bx - ax, vy = by - ay, l2 = vx * vx + vy * vy, t = l2 ? Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / l2)) : 0;
+  return Math.hypot(px - (ax + t * vx), py - (ay + t * vy));
+}
+const nextLabel = kind => $("lbl").value.trim() || (kind + " " + (++counter));
+cv.addEventListener("pointerdown", e => {
+  const [sx, sy] = evPos(e), mode = $("mode").value;
+  if (TIP && dist2(sx, sy, TIP[0], TIP[1]) < 18) { drag = { t: "north" }; cv.setPointerCapture(e.pointerId); return; }
+  if (G && $("manC").checked) { const [cx, cy] = toScr(G.C.x, G.C.y); if (dist2(sx, sy, cx, cy) < 14) { drag = { t: "centre" }; cv.setPointerCapture(e.pointerId); return; } }
+  const [wx0, wy0] = toWorld(sx, sy), [wx, wy] = clampW(wx0, wy0);
+  if (mode === "north") { drag = { t: "north" }; cv.setPointerCapture(e.pointerId); setNorthFrom(sx, sy); return; }
+  if (mode === "boundary") {
+    const vi = poly.findIndex(p => { const [px, py] = toScr(p.x, p.y); return dist2(px, py, sx, sy) < 10; });
+    if (vi >= 0) {
+      if (e.shiftKey) { poly.splice(vi, 1); if (poly.length < 3) closed = false; touched(); return; }
+      if (!closed && vi === 0 && poly.length >= 3) { closed = true; touched(); return; }
+      drag = { t: "vertex", i: vi }; cv.setPointerCapture(e.pointerId); return;
+    }
+    if (closed) {
+      for (let k = 0; k < poly.length; k++) {
+        const [ax, ay] = toScr(poly[k].x, poly[k].y), [bx, by] = toScr(poly[(k + 1) % poly.length].x, poly[(k + 1) % poly.length].y);
+        if (segDist(sx, sy, ax, ay, bx, by) < 9) { poly.splice(k + 1, 0, { x: wx, y: wy }); drag = { t: "vertex", i: k + 1 }; cv.setPointerCapture(e.pointerId); touched(); return; }
+      }
+    } else { poly.push({ x: wx, y: wy }); touched(); }
+    return;
+  }
+  if (!G || !confirmed) { $("live").textContent = "Mark and confirm the boundary first (press OK)."; return; }
+  if (mode === "point") { const kind = $("kind").value; pts.push({ kind, label: nextLabel(kind), x: wx, y: wy }); $("lbl").value = ""; refresh(); }
+  else if (mode === "room") { drag = { t: "room", rect: { x0: wx, y0: wy, x1: wx, y1: wy } }; cv.setPointerCapture(e.pointerId); }
+});
+cv.addEventListener("pointermove", e => {
+  const [sx, sy] = evPos(e);
+  if (drag) {
+    const [wx, wy] = clampW(...toWorld(sx, sy));
+    if (drag.t === "north") setNorthFrom(sx, sy);
+    else if (drag.t === "centre") { manualC = { x: wx, y: wy }; refresh(); }
+    else if (drag.t === "vertex") { poly[drag.i] = { x: wx, y: wy }; confirmed = false; refresh(); }
+    else if (drag.t === "room") { drag.rect.x1 = wx; drag.rect.y1 = wy; draw(); }
+    return;
+  }
+  if (G && confirmed) {
+    const [wx, wy] = toWorld(sx, sy), r = regionAt(wx, wy);
+    $("live").textContent = r ? `Devta ${r.id} ${NAMES[r.id]} | ${zoneOf(r.beta)} (${r.beta.toFixed(1)}°) | ${sectorCode(r.beta)}` : "outside boundary";
+  }
+});
+cv.addEventListener("pointerup", () => {
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.t === "room") {
+    const r = d.rect;
+    if (Math.abs(r.x1 - r.x0) * VW.sc > 6 && Math.abs(r.y1 - r.y0) * VW.sc > 6) { const kind = $("kind").value; r.label = nextLabel(kind); r.kind = kind; rooms.push({ label: r.label, kind, poly: [{ x: r.x0, y: r.y0 }, { x: r.x1, y: r.y0 }, { x: r.x1, y: r.y1 }, { x: r.x0, y: r.y1 }] }); $("lbl").value = ""; }
+  }
+  refresh();
+});
+
+// ---------- results ----------
+function regionTable() {
+  const R = computeRegions(2), out = [];
+  for (let id = 1; id <= 45; id++) {
+    if (!R.cnt[id]) continue;
+    const u2 = R.cnt[id] * R.step * R.step / (VW.sc * VW.sc), mx = (R.sxA[id] / R.cnt[id] - VW.ox) / VW.sc, my = (R.syA[id] / R.cnt[id] - VW.oy) / VW.sc;
+    const dx = mx - G.C.x, dy = my - G.C.y; let ga = Math.atan2(dx, -dy) / RAD; if (ga < 0) ga += 360;
+    out.push({ id, name: NAMES[id], u2, pct: u2 / G.area * 100, zone: zoneOf(ga - alpha), group: id === 1 ? "Brahma" : id <= 13 ? "Inner" : "Outer " + sectorCode(45 + (id - 14) * 11.25 + 1) });
+  }
+  return out;
+}
+function pointRows() {
+  return pts.map((p, i) => { const r = regionAt(p.x, p.y);
+    return [p.label, p.kind, r ? r.id : "-", r ? NAMES[r.id] : "outside", r ? zoneOf(r.beta) : "-", r ? r.beta.toFixed(1) : "-", r ? sectorCode(r.beta) : "-", i]; });
+}
+function pctMap(m, tot) { return Object.entries(m).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${(v / tot * 100).toFixed(0)}%`).join(", "); }
+function roomData(m) {
+  const xs = m.poly.map(p => p.x), ys = m.poly.map(p => p.y), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), n = 40, dv = {}, zn = {};
+  let tot = 0;
+  for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) {
+    const px = x0 + (a + .5) * (x1 - x0) / n, py = y0 + (b + .5) * (y1 - y0) / n;
+    if (!pip(m.poly, px, py)) continue;
+    tot++; const r = regionAt(px, py), k = r ? r.id + " " + NAMES[r.id] : "Outside", z = r ? zoneOf(r.beta) : "Outside";
+    dv[k] = (dv[k] || 0) + 1; zn[z] = (zn[z] || 0) + 1;
+  }
+  return { dv, zn, tot, st: polyStats(m.poly) };
+}
+function roomRows() {
+  return rooms.map((m, i) => {
+    const d = roomData(m), c = regionAt(d.st.x, d.st.y);
+    return [m.label, m.kind || "", areaStr(d.st.area), c ? zoneOf(c.beta) : "-", d.tot ? pctMap(d.dv, d.tot) : "-", d.tot ? pctMap(d.zn, d.tot) : "-", i];
+  });
+}
+function itemsByDevta() {
+  const m = new Map(), add = (id, t) => { if (!m.has(id)) m.set(id, []); m.get(id).push(t); };
+  for (const p of pts) { const r = regionAt(p.x, p.y); if (r) add(r.id, p.label); }
+  for (const rm of rooms) {
+    const d = roomData(rm); if (!d.tot) continue;
+    for (const [k, v] of Object.entries(d.dv)) { const id = parseInt(k); if (!isNaN(id) && v / d.tot >= 0.1) add(id, `${rm.label} (${Math.round(v / d.tot * 100)}%)`); }
+  }
+  return m;
+}
+function refresh() {
+  draw(); updateBar();
+  let h = "";
+  if (!G) h = "<p class='note'>Mark the boundary on the plan (any shape), then press OK.</p>";
+  else if (!confirmed) h = "<p class='note'>Boundary not confirmed yet &ndash; press the green OK button above the plan to calculate the Devta marking.</p>";
+  else {
+    const T = regionTable(), IT = itemsByDevta();
+    h += `<h4>Devta marking &ndash; ${T.length} Devtas inside the boundary | North angle ${alpha}&deg; | boundary area ${areaStr(G.area) === "-" ? "(set real width for ft&sup2;)" : areaStr(G.area) + " ft&sup2;"}</h4>
+      <table><tr><th>#</th><th>Devta</th><th>Group</th><th>Area %</th><th>Area ft&sup2;</th><th>Zone (16)</th><th>Points / rooms here</th></tr>`;
+    for (const t of T) h += `<tr><td>${t.id}</td><td>${t.name}</td><td>${t.group}</td><td>${t.pct.toFixed(1)}</td><td>${areaStr(t.u2)}</td><td>${t.zone}</td><td>${(IT.get(t.id) || []).join("; ")}</td></tr>`;
+    h += "</table>";
+    const P = pointRows();
+    if (P.length) {
+      h += "<h4>Points</h4><table><tr><th>Label</th><th>Type</th><th>#</th><th>Devta</th><th>Zone</th><th>Bearing</th><th>Sector</th><th></th></tr>";
+      for (const r of P) h += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}&deg;</td><td>${r[6]}</td><td><span class="x" onclick="delP(${r[7]})">&times;</span></td></tr>`;
+      h += "</table>";
+    }
+    const Rm = roomRows();
+    if (Rm.length) {
+      h += "<h4>Rooms (share by area)</h4><table><tr><th>Room</th><th>Type</th><th>Area ft&sup2;</th><th>Centre zone</th><th>Devta share</th><th>Zone share</th><th></th></tr>";
+      for (const r of Rm) h += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td><td><span class="x" onclick="delR(${r[6]})">&times;</span></td></tr>`;
+      h += "</table>";
+    }
+  }
+  $("out").innerHTML = h;
+}
+window.delP = i => { pts.splice(i, 1); refresh(); };
+window.delR = i => { rooms.splice(i, 1); refresh(); };
+
+// ---------- rotate plan ----------
+function setRot(nr) {
+  if (!baseImg) { $("live").textContent = "Upload a plan image to rotate it."; return; }
+  nr = ((nr + 180) % 360 + 360) % 360 - 180;
+  const d = nr - rot; if (Math.abs(d) < 1e-9) return;
+  const ow = world.w, oh = world.h, th = nr * RAD, bw = baseImg.width, bh = baseImg.height;
+  const nw = Math.ceil(Math.abs(bw * Math.cos(th)) + Math.abs(bh * Math.sin(th))), nh = Math.ceil(Math.abs(bw * Math.sin(th)) + Math.abs(bh * Math.cos(th)));
+  const c = Math.cos(d * RAD), s = Math.sin(d * RAD);
+  const tr = p => { const dx = p.x - ow / 2, dy = p.y - oh / 2; return { x: dx * c - dy * s + nw / 2, y: dx * s + dy * c + nh / 2 }; };
+  poly = poly.map(tr); pts.forEach(p => Object.assign(p, tr(p))); rooms.forEach(m => { m.poly = m.poly.map(tr); });
+  if (manualC) manualC = tr(manualC);
+  if (Math.abs(nr) < 1e-9) bgImg = baseImg;
+  else {
+    const rc = document.createElement("canvas"); rc.width = nw; rc.height = nh; const x = rc.getContext("2d");
+    x.fillStyle = "#fff"; x.fillRect(0, 0, nw, nh); x.translate(nw / 2, nh / 2); x.rotate(th); x.drawImage(baseImg, -bw / 2, -bh / 2); bgImg = rc;
+  }
+  rot = nr; world = { w: nw, h: nh }; $("rot").value = rot; $("rotR").value = rot;
+  setAlpha(alpha + d);   // North keeps its real direction on the plan; this also redraws
+}
+$("rot").addEventListener("change", () => setRot(+$("rot").value || 0));
+$("rotR").addEventListener("input", () => setRot(+$("rotR").value || 0));
+document.querySelectorAll(".rb").forEach(b => b.onclick = () => setRot(b.dataset.set !== undefined ? +b.dataset.set : rot + +b.dataset.d));
+$("northUp").onclick = () => setRot(rot - alpha);
+
+// ---------- PDF report (no libraries) ----------
+const latin = s => String(s).replace(/[–—]/g, "-").replace(/×/g, "x").replace(/[^\x00-\xff]/g, "?");
+function wrapTxt(s, n) {
+  const out = []; let line = "";
+  for (const w of String(s).split(" ")) {
+    if ((line + " " + w).trim().length > n) { if (line) out.push(line); line = w; while (line.length > n) { out.push(line.slice(0, n)); line = line.slice(n); } }
+    else line = (line + " " + w).trim();
+  }
+  if (line) out.push(line);
+  return out.length ? out : [""];
+}
+function buildPDF(pages, img) {
+  const enc = s => { const a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i) & 255; return a; };
+  const chunks = [], offs = []; let len = 0;
+  const push = b => { if (typeof b === "string") b = enc(b); chunks.push(b); len += b.length; };
+  const obj = (n, ...parts) => { offs[n] = len; push(n + " 0 obj\n"); parts.forEach(push); push("\nendobj\n"); };
+  const n = pages.length;
+  push("%PDF-1.4\n");
+  obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2, "<< /Type /Pages /Count " + n + " /Kids [" + pages.map((_, i) => (6 + 2 * i) + " 0 R").join(" ") + "] >>");
+  obj(3, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+  obj(4, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+  if (img) obj(5, "<< /Type /XObject /Subtype /Image /Width " + img.w + " /Height " + img.h + " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + img.bytes.length + " >>\nstream\n", img.bytes, "\nendstream");
+  else obj(5, "null");
+  pages.forEach((c, i) => {
+    obj(6 + 2 * i, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Im1 5 0 R >> >> /Contents " + (7 + 2 * i) + " 0 R >>");
+    const body = enc(c); obj(7 + 2 * i, "<< /Length " + body.length + " >>\nstream\n", body, "\nendstream");
+  });
+  const total = 6 + 2 * n, xrefAt = len;
+  let x = "xref\n0 " + total + "\n0000000000 65535 f \n";
+  for (let i = 1; i < total; i++) x += String(offs[i]).padStart(10, "0") + " 00000 n \n";
+  push(x + "trailer\n<< /Size " + total + " /Root 1 0 R >>\nstartxref\n" + xrefAt + "\n%%EOF");
+  return new Blob(chunks, { type: "application/pdf" });
+}
+function exportPDF() {
+  if (!G || !confirmed) { $("live").textContent = "Mark and confirm the boundary first (press OK), then save the PDF."; return; }
+  // hi-res snapshot of the marked plan
+  HI = true; cv.width = cv.height = 1800; ctx.setTransform(2, 0, 0, 2, 0, 0); draw();
+  const sw = world.w * VW.sc * 2, sh = world.h * VW.sc * 2, tmp = document.createElement("canvas");
+  tmp.width = Math.round(sw); tmp.height = Math.round(sh);
+  const t = tmp.getContext("2d"); t.fillStyle = "#fff"; t.fillRect(0, 0, tmp.width, tmp.height);
+  t.drawImage(cv, VW.ox * 2, VW.oy * 2, sw, sh, 0, 0, tmp.width, tmp.height);
+  const url = tmp.toDataURL("image/jpeg", 0.92);
+  HI = false; cv.width = cv.height = 900; ctx.setTransform(1, 0, 0, 1, 0, 0); refresh();
+  const bin = atob(url.split(",")[1]), bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+
+  const PW = 595, PH = 842, M = 40, pages = []; let cur = [], y = PH - M;
+  const esc = s => latin(s).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+  const T = (x, yy, s, size = 9, bold = false) => cur.push(`BT /F${bold ? 2 : 1} ${size} Tf ${x} ${yy.toFixed(1)} Td (${esc(s)}) Tj ET`);
+  const newPage = () => { pages.push(cur.join("\n")); cur = []; y = PH - M; };
+  const H1 = s => { if (y - 40 < M) newPage(); y -= 18; T(M, y, s, 12, true); y -= 6; };
+  function table(heads, xs, ns, rows) {
+    const lh = 10.5, hOf = cells => Math.max(...cells.map((c, i) => wrapTxt(c, ns[i]).length)) * lh + 4;
+    const row = (cells, bold, shade) => {
+      const lines = cells.map((c, i) => wrapTxt(c, ns[i])), h = hOf(cells);
+      if (shade) cur.push(`0.95 0.90 0.82 rg ${M} ${(y - h).toFixed(1)} ${PW - 2 * M} ${h.toFixed(1)} re f 0 g`);
+      lines.forEach((ls, i) => ls.forEach((l, k) => T(xs[i], y - 9 - k * lh, l, 8, bold)));
+      y -= h; cur.push(`0.8 G 0.4 w ${M} ${y.toFixed(1)} m ${PW - M} ${y.toFixed(1)} l S 0 G`);
+    };
+    if (y - hOf(heads) - 20 < M) newPage();
+    row(heads, true, true);
+    rows.forEach(r => { if (y - hOf(r) < M) { newPage(); row(heads, true, true); } row(r, false, false); });
+  }
+  y -= 14; T(M, y, "45 Devta Marking Report", 18, true);
+  y -= 14; T(M, y, "Generated " + new Date().toLocaleString() + "   |   Centre = area centroid of boundary; 32 outer wedges + inner 12 + Brahma", 8);
+  [`North angle: ${alpha} deg clockwise from plan top   |   Plan rotation: ${rot} deg`,
+   `Centre: ${$("manC").checked ? "manual" : "area centroid"}   |   Brahma radius ${G.B}   |   Inner ring radius ${G.I}`,
+   `Boundary area: ${G.ft ? areaStr(G.area) + " sq ft" : "scale not set (percentages only)"}`].forEach(f => { y -= 12; T(M, y, f, 9); });
+  const sc = Math.min((PW - 2 * M) / tmp.width, (y - M - 40) / tmp.height), iw = tmp.width * sc, ih = tmp.height * sc;
+  y -= 10 + ih; cur.push(`q ${iw.toFixed(1)} 0 0 ${ih.toFixed(1)} ${M} ${y.toFixed(1)} cm /Im1 Do Q`);
+  y -= 12; T(M, y, "Legend: gold = Brahma (1), green = inner 12 Devtas (2-13), blue = outer 32 Devtas (14-45). Red numbers = Devta numbers.", 8);
+  newPage();
+
+  const IT = itemsByDevta(), TB = regionTable();
+  H1("Devta summary - all Devtas inside the boundary");
+  table(["#", "Devta", "Group", "Area %", "Area sq ft", "Zone", "Points / rooms located here"], [40, 62, 140, 205, 250, 300, 335], [3, 16, 12, 7, 8, 5, 46],
+    TB.map(r => [r.id, r.name, r.group, r.pct.toFixed(1), areaStr(r.u2), r.zone, (IT.get(r.id) || []).join("; ")]));
+  H1("Marked points (doors, kitchen, toilet, etc.)");
+  const P = pointRows();
+  if (P.length) table(["Label", "Type", "#", "Devta", "Zone", "Bearing", "Sector"], [40, 150, 215, 240, 320, 365, 420], [22, 12, 3, 16, 6, 9, 6], P.map(r => r.slice(0, 7).map((v, i) => i === 5 && v !== "-" ? v + " deg" : v)));
+  else { y -= 12; T(M, y, "No points marked.", 9); }
+  H1("Marked rooms (share by area)");
+  const R = roomRows();
+  if (R.length) table(["Room", "Type", "Area sq ft", "Centre zone", "Devta share", "Zone share"], [40, 110, 165, 215, 262, 415], [14, 9, 8, 6, 36, 28], R.map(r => r.slice(0, 6)));
+  else { y -= 12; T(M, y, "No rooms marked.", 9); }
+  pages.push(cur.join("\n"));
+  const out = pages.map((c, i) => c + `\nBT /F1 7 Tf ${PW / 2 - 25} 22 Td (Page ${i + 1} of ${pages.length}) Tj ET`);
+  dl(buildPDF(out, { bytes, w: tmp.width, h: tmp.height }), "devta_marking_report.pdf");
+  $("live").textContent = "PDF report downloaded.";
+}
+$("pdf").onclick = exportPDF;
+
+// ---------- controls / export ----------
+$("ftW").addEventListener("input", () => {
+  const v = +$("ftW").value || 0;
+  if (v > 0 && poly.length >= 3) { const xs = poly.map(p => p.x); ftScale = v / (Math.max(...xs) - Math.min(...xs)); } else ftScale = 0;
+});
+for (const id of ["op","manC","bR","iR","ftW","lblMode","showChakra","show32","ck","mode"]) $(id).addEventListener("input", refresh);
+$("clr").onclick = () => { pts.length = 0; rooms.length = 0; counter = 0; refresh(); };
+function dl(blob, name) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); }
+$("png").onclick = () => cv.toBlob(b => dl(b, "devta_marking.png"));
+$("csv").onclick = () => {
+  if (!G || !confirmed) return;
+  const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+  let s = "North_angle_deg," + alpha + "\n\nDevta_no,Devta,Group,Area_pct,Area_sqft,Zone16\n";
+  for (const t of regionTable()) s += [t.id, t.name, t.group, t.pct.toFixed(2), areaStr(t.u2), t.zone].map(q).join(",") + "\n";
+  s += "\nPoint,Type,Devta_no,Devta,Zone16,Bearing,Sector\n";
+  for (const r of pointRows()) s += r.slice(0, 7).map(q).join(",") + "\n";
+  s += "\nRoom,Type,Area_sqft,CentreZone,DevtaShare,ZoneShare\n";
+  for (const r of roomRows()) s += r.slice(0, 6).map(q).join(",") + "\n";
+  dl(new Blob([s], { type: "text/csv" }), "devta_report.csv");
+};
+refresh();
+</script>
+</body>
+</html>
