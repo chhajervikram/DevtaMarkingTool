@@ -29,6 +29,10 @@ th,td{border:1px solid #d9cfbf;padding:4px 6px;text-align:left;vertical-align:to
 th{background:#f1e5d3}
 .note{font-size:12px;color:#6b5a48;margin-top:6px}
 .x{color:#b00020;cursor:pointer;font-weight:bold}
+#devList{display:none;grid-template-columns:repeat(5,1fr);gap:5px 10px;max-width:900px;background:#fff;border:1px solid #d9cfbf;border-radius:8px;padding:10px 14px;margin:6px 0;font-size:13px}
+details.dd{max-width:900px;margin-top:8px;background:#fff;border:1px solid #d9cfbf;border-radius:8px;padding:8px 12px}
+details.dd>summary{cursor:pointer;font-weight:600;color:#5b2a12}
+@media(max-width:620px){#devList{grid-template-columns:repeat(2,1fr)}}
 #bbar{display:none;max-width:900px;margin-bottom:6px;padding:8px 10px;background:#fff7e0;border:2px solid #e0a800;border-radius:8px;align-items:center;gap:10px;flex-wrap:wrap}
 </style>
 </head>
@@ -80,10 +84,26 @@ th{background:#f1e5d3}
   <div class="note" style="margin-top:0">Fractions of the distance from the centre to the boundary in each direction. Default 1/3 and 7/9 (the 9&times;9 Mandala proportions).</div>
 
   <h3>5. Display</h3>
+  <label>Graph Max line (&times; avg) <input type="number" id="maxF" value="1.5" min="1" max="5" step="0.05"></label>
+  <label>Graph Min line (&times; avg) <input type="number" id="minF" value="0.65" min="0.05" max="1" step="0.05"></label>
   <label>Region labels <select id="lblMode"><option value="num">Numbers</option><option value="name">Numbers + names</option><option value="none">None</option></select></label>
   <label class="chk"><input type="checkbox" id="showChakra" checked> Shakti Chakra (16 zones)</label>
   <label class="chk"><input type="checkbox" id="show32"> 32-sector codes (E1&hellip;N8)</label>
   <label>Chakra size <input type="range" id="ck" min="0.3" max="1" step="0.02" value="0.9"></label>
+
+  <h3>7. Energy field analysis</h3>
+  <label>Score method <select id="emethod">
+    <option value="m1">1 - Pada-based (geometry)</option>
+    <option value="m2">2 - Vastu assessment (entered)</option>
+    <option value="m3">3 - Lecher readings (entered)</option></select></label>
+  <label>Plan colouring <select id="heat">
+    <option value="">Group colours</option>
+    <option value="m1">Heat map - Pada-based</option>
+    <option value="m2">Heat map - Vastu assessment</option>
+    <option value="m3">Heat map - Lecher readings</option></select></label>
+  <label>Lecher full-scale value <input type="number" id="lecherMax" value="100" min="0.0001" step="any"></label>
+  <button id="enPng">Save energy graph PNG</button>
+  <div class="note" style="margin-top:4px">Scores are <b>symbolic</b> (0&ndash;100), never measured energy. The three methods stay separate and are never merged. 80&ndash;100 Strong (green), 50&ndash;79 Moderate (amber), 0&ndash;49 Needs attention (red). Methods 2 and 3 are typed in the table below the graphs.</div>
 
   <h3>6. Marking</h3>
   <label>Mode <select id="mode">
@@ -96,6 +116,7 @@ th{background:#f1e5d3}
   <button id="clr">Clear marks</button>
   <button id="png">Save PNG</button>
   <button id="csv">Save CSV</button>
+  <button id="barPng">Save graph PNG</button>
   <button id="pdf" style="background:#5b2a12;color:#fff">Save PDF report</button>
 </aside>
 
@@ -106,6 +127,21 @@ th{background:#f1e5d3}
   </div>
   <canvas id="cv" width="900" height="900"></canvas>
   <div id="live">Upload a plan (or draw on the blank canvas), mark the boundary, then press OK.</div>
+  <div id="devList"></div>
+  <details id="dBar" class="dd" style="display:none"><summary>Devta bar graph (report style: 2 to 5, 6 to 13, 14 to 45)</summary>
+    <canvas id="bar" width="1600" height="1700" style="width:100%;max-width:900px;height:auto;background:#fff;border:1px solid #ece4d6;border-radius:6px;margin-top:8px"></canvas>
+  </details>
+  <details id="dEn" class="dd" style="display:none"><summary>Vastu energy field analysis (symbolic scores, 3 methods)</summary>
+    <canvas id="en" width="1600" height="1450" style="width:100%;max-width:900px;height:auto;background:#fff;border:1px solid #ece4d6;border-radius:6px;margin-top:8px"></canvas>
+    <div id="enList" class="note"></div>
+    <details id="entry" style="margin-top:10px;border-top:1px solid #ece4d6;padding-top:8px">
+      <summary><b>Enter Method 2 (Vastu assessment) scores and Method 3 (Lecher) readings</b> &ndash; optional</summary>
+      <div class="note">Method 1 is calculated automatically. Method 2: type the consultant's 0&ndash;100 score per Devta (room use, entrance, openings, etc.). Method 3: type the Lecher antenna reading; it is converted as reading &divide; full-scale &times; 100. Leave blank = no data.</div>
+      <button id="clrS2">Clear Vastu scores</button><button id="clrS3">Clear Lecher readings</button>
+      <table id="entryT"><thead><tr><th>#</th><th>Devta</th><th>Method 1<br>Pada score</th><th>Method 2<br>Vastu score 0-100</th><th>Method 3<br>Lecher reading</th><th>Marked here</th></tr></thead><tbody></tbody></table>
+    </details>
+  </details>
+  <details id="dTab" class="dd" style="display:none"><summary>Devta details table (area, zone, score, marked items)</summary><div id="devTab"></div></details>
   <div id="out"></div>
   <div class="note">
     Method: the centre is the area centroid of the boundary polygon. In every direction the distance from the centre to the boundary is split into
@@ -119,10 +155,10 @@ th{background:#f1e5d3}
 
 <script>
 // ===== CORE START =====
-const NAMES = ["", "Bramha","Budhar","Aryaman","Vivisvan","Mitra","Aapaha","Aapahavatsa","Savita","Savitra","Indra","Jaya","Rudra","Rajaksma",
+const NAMES = ["", "Bramha","Budhar","Aryama","Vivisvan","Mitra","Aapaha","Aapahavatsa","Savita","Savitra","Indra","Jaya","Rudra","Rajaksma",
 "Shikhi","Parjanya","Jayant","Mahendra","Surya","Satya","Bhrisha","Akash",
 "Anil","Pusha","Vitatha","Grihakshat","Yama","Gandharv","Bhringraj","Mrigah",
-"Pitra","Dauwarik","Sugreev","Pushpdant","Varun","Asur","Shosha","Papayakshma",
+"Pitra","Dauwarik","Sugreev","Pushpdant","Varun","Asur","Shosha","Papyakshma",
 "Roga","Naga","Mukhya","Bhallat","Soma","Bhujag","Aditi","Diti"];
 function polyStats(P) {
   let A = 0, cx = 0, cy = 0;
@@ -249,7 +285,7 @@ function drawRegions(R) {
     const id = R.ids[j * R.w + i]; if (!id) continue;
     const p = (j * R.w + i) * 4, rt = i + 1 < R.w ? R.ids[j * R.w + i + 1] : 0, dn = j + 1 < R.h ? R.ids[(j + 1) * R.w + i] : 0;
     if ((rt && rt !== id) || (dn && dn !== id)) { d[p] = 20; d[p+1] = 40; d[p+2] = 210; d[p+3] = 255; }
-    else { const c = colorOf(id); d[p] = c[0]; d[p+1] = c[1]; d[p+2] = c[2]; d[p+3] = 80; }
+    else { const c = fillFor(id); d[p] = c[0]; d[p+1] = c[1]; d[p+2] = c[2]; d[p+3] = heatMethod() ? 135 : 80; }
   }
   x.putImageData(im, 0, 0);
   ctx.imageSmoothingEnabled = false; ctx.drawImage(off, 0, 0, 900, 900); ctx.imageSmoothingEnabled = true;
@@ -271,7 +307,7 @@ function draw() {
   if (bgImg) { ctx.globalAlpha = +$("op").value; ctx.drawImage(bgImg, VW.ox, VW.oy, world.w * VW.sc, world.h * VW.sc); ctx.globalAlpha = 1; }
   else { ctx.strokeStyle = "#e3dccf"; ctx.strokeRect(VW.ox, VW.oy, world.w * VW.sc, world.h * VW.sc); }
   prep();
-  if (G && confirmed) drawRegions(computeRegions(HI ? 1 : 2));
+  if (G && confirmed) { ensureScores(); drawRegions(computeRegions(HI ? 1 : 2)); if (heatMethod()) drawHeatLegend(); }
   // boundary
   if (poly.length) {
     ctx.beginPath(); poly.forEach((p, i) => { const [x, y] = toScr(p.x, p.y); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
@@ -505,17 +541,24 @@ function itemsByDevta() {
   }
   return m;
 }
+function renderDevList() {
+  const el = $("devList");
+  if (!G || !confirmed) { el.style.display = "none"; return; }
+  el.style.display = "grid";
+  let h = ""; for (let id = 1; id <= 45; id++) h += `<span>${String(id).padStart(2, "0")}. ${NAMES[id]}</span>`;
+  el.innerHTML = h;
+}
 function refresh() {
   draw(); updateBar();
-  let h = "";
+  let h = "", hd = "";
   if (!G) h = "<p class='note'>Mark the boundary on the plan (any shape), then press OK.</p>";
   else if (!confirmed) h = "<p class='note'>Boundary not confirmed yet &ndash; press the green OK button above the plan to calculate the Devta marking.</p>";
   else {
     const T = regionTable(), IT = itemsByDevta();
-    h += `<h4>Devta marking &ndash; ${T.length} Devtas inside the boundary | North angle ${alpha}&deg; | boundary area ${areaStr(G.area) === "-" ? "(set real width for ft&sup2;)" : areaStr(G.area) + " ft&sup2;"}</h4>
-      <table><tr><th>#</th><th>Devta</th><th>Group</th><th>Area %</th><th>Area ft&sup2;</th><th>Zone (16)</th><th>Points / rooms here</th></tr>`;
-    for (const t of T) h += `<tr><td>${t.id}</td><td>${t.name}</td><td>${t.group}</td><td>${t.pct.toFixed(1)}</td><td>${areaStr(t.u2)}</td><td>${t.zone}</td><td>${(IT.get(t.id) || []).join("; ")}</td></tr>`;
-    h += "</table>";
+    hd += `<h4>Devta marking &ndash; ${T.length} Devtas inside the boundary | North angle ${alpha}&deg; | boundary area ${areaStr(G.area) === "-" ? "(set real width for ft&sup2;)" : areaStr(G.area) + " ft&sup2;"}</h4>
+      <table><tr><th>#</th><th>Devta</th><th>Group</th><th>Area %</th><th>Area ft&sup2;</th><th>Zone (16)</th><th>Score</th><th>Points / rooms here</th></tr>`;
+    for (const t of T) hd += `<tr><td>${t.id}</td><td>${t.name}</td><td>${t.group}</td><td>${t.pct.toFixed(1)}</td><td>${areaStr(t.u2)}</td><td>${t.zone}</td>${scoreCell(t.id)}<td>${(IT.get(t.id) || []).join("; ")}</td></tr>`;
+    hd += "</table>";
     const P = pointRows();
     if (P.length) {
       h += "<h4>Points</h4><table><tr><th>Label</th><th>Type</th><th>#</th><th>Devta</th><th>Zone</th><th>Bearing</th><th>Sector</th><th></th></tr>";
@@ -530,9 +573,193 @@ function refresh() {
     }
   }
   $("out").innerHTML = h;
+  $("devTab").innerHTML = hd; $("dTab").style.display = hd ? "block" : "none"; renderDevList();
+  updateChart(); updateEnergy(); updateEntryTable();
 }
 window.delP = i => { pts.splice(i, 1); refresh(); };
 window.delR = i => { rooms.splice(i, 1); refresh(); };
+
+// ---------- Devta bar graph (report style: 2-5, 6-13, 14-45) ----------
+const ELEM = {};
+"WEFS".split("").forEach((c, i) => ELEM[2 + i] = c);
+"FFWFWFWW".split("").forEach((c, i) => ELEM[6 + i] = c);
+"WAAAWFAEEWFAEWEAWWFWFFEWWWWEFEAW".split("").forEach((c, i) => ELEM[14 + i] = c);
+const ECOL = { W: "#80A0CD", A: "#8EC086", F: "#D68C80", E: "#E4C87C", S: "#C6CAD4" };
+function rrect(x, X, Y, W, H, r) { r = Math.min(r, W / 2, H); x.beginPath(); x.moveTo(X, Y + H); x.lineTo(X, Y + r); x.quadraticCurveTo(X, Y, X + r, Y); x.lineTo(X + W - r, Y); x.quadraticCurveTo(X + W, Y, X + W, Y + r); x.lineTo(X + W, Y + H); x.closePath(); }
+function renderChart(cnv, T) {
+  const w = cnv.width, h = cnv.height, x = cnv.getContext("2d"), val = new Array(46).fill(0);
+  T.forEach(t => val[t.id] = t.pct);
+  const MAXF = +$("maxF").value || 1.5, MINF = +$("minF").value || 0.65;
+  x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = "#fff"; x.fillRect(0, 0, w, h);
+  const L = 70, R = w - 110, secH = Math.floor((h - 90) / 3), ph = secH - 150;
+  [[2, 5], [6, 13], [14, 45]].forEach(([a, b], gi) => {
+    const y0 = 16 + gi * secH, n = b - a + 1, slot = (R - L) / n, top = y0 + 64, base = top + ph;
+    x.fillStyle = "#000"; x.font = "26px system-ui, Arial"; x.textAlign = "left"; x.textBaseline = "alphabetic";
+    x.fillText(`Devta Bar Graph ( ${a} to ${b} )`, L, y0 + 30);
+    const vs = []; for (let i = a; i <= b; i++) vs.push(val[i]);
+    const avg = vs.reduce((p, q) => p + q, 0) / n, mx = avg * MAXF, mn = avg * MINF, sm = Math.max(...vs, mx) * 1.0 || 1;
+    const Y = v => base - v / sm * ph;
+    x.fillStyle = "#f2f8f2"; x.fillRect(L, Y(mx), R - L, Y(mn) - Y(mx));
+    x.strokeStyle = "#ececec"; x.lineWidth = 1; x.beginPath(); x.moveTo(L, top); x.lineTo(R, top); x.stroke();
+    for (let i = a; i <= b; i++) {
+      const bw = slot * 0.62, bx = L + (i - a) * slot + (slot - bw) / 2, bh = val[i] / sm * ph;
+      x.fillStyle = ECOL[ELEM[i]]; rrect(x, bx, base - bh, bw, bh, Math.min(8, bw / 3)); x.fill();
+      x.fillStyle = "#666"; x.font = (n > 10 ? 15 : 17) + "px system-ui, Arial"; x.textAlign = "center"; x.textBaseline = "top"; x.fillText(i, bx + bw / 2, base + 12);
+    }
+    x.strokeStyle = "#dcdcdc"; x.lineWidth = 1.5; x.beginPath(); x.moveTo(L, base); x.lineTo(R, base); x.stroke();
+    [[mx, "Max", "#d98c8c"], [avg, "Avg", "#6fae6f"], [mn, "Min", "#d98c8c"]].forEach(([v, t, c]) => {
+      x.strokeStyle = c; x.lineWidth = 1.6; x.setLineDash([7, 5]); x.beginPath(); x.moveTo(L, Y(v)); x.lineTo(R, Y(v)); x.stroke(); x.setLineDash([]);
+      x.fillStyle = c; x.font = "14px system-ui, Arial"; x.textAlign = "left"; x.textBaseline = "middle"; x.fillText(t, R + 8, Y(v));
+    });
+  });
+  const ly = h - 52; x.font = "15px system-ui, Arial"; x.textBaseline = "middle"; x.textAlign = "left";
+  let lx = L; [["W", "Water"], ["A", "Air"], ["F", "Fire"], ["E", "Earth"], ["S", "Space"]].forEach(([k, t]) => { x.fillStyle = ECOL[k]; x.fillRect(lx, ly - 8, 16, 16); x.fillStyle = "#555"; x.fillText(t, lx + 22, ly); lx += 22 + t.length * 9 + 26; });
+  x.fillStyle = "#888"; x.font = "13px system-ui, Arial";
+  x.fillText(`Bar = area share (%) inside the boundary.  Avg = mean of the bars in each graph;  Max = ${MAXF} x Avg;  Min = ${MINF} x Avg.`, L, h - 22);
+}
+function updateChart() {
+  const w = $("dBar"), on = G && confirmed; w.style.display = on ? "block" : "none";
+  if (on && w.open) renderChart($("bar"), regionTable());
+}
+$("dBar").addEventListener("toggle", () => { if ($("dBar").open) updateChart(); });
+$("barPng").onclick = () => { if (!G || !confirmed) { $("live").textContent = "Press OK on the boundary first."; return; } const c = document.createElement("canvas"); c.width = 1600; c.height = 1700; renderChart(c, regionTable()); c.toBlob(b => dl(b, "devta_bar_graph.png")); };
+
+// ---------- Vastu Energy Field Analysis (symbolic scores, 3 separate methods) ----------
+const LV = { strong: { c: "#3d9a4a", t: "Strong" }, mod: { c: "#f0b429", t: "Moderate" }, low: { c: "#d9534f", t: "Needs attention" }, none: { c: "#c9c9c9", t: "No data" } };
+const lvOf = v => v == null || isNaN(v) ? "none" : v >= 80 ? "strong" : v >= 50 ? "mod" : "low";
+const METHODS = { m1: "Method 1 - Pada-based (geometry)", m2: "Method 2 - Vastu assessment (entered by consultant)", m3: "Method 3 - Lecher antenna (consultant readings)" };
+const S2 = new Array(46).fill(null), S3 = new Array(46).fill(null);
+let S1 = new Array(46).fill(null), s1sig = "", HEATM = null;
+const fmtS = v => v == null || isNaN(v) ? "-" : String(Math.round(v * 10) / 10);
+const hex2rgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const heatMethod = () => HEATM !== null ? HEATM : $("heat").value;
+function fillFor(id) { const m = heatMethod(); return m ? hex2rgb(LV[lvOf(scoreOf(m, id))].c) : colorOf(id); }
+function scoreOf(m, id) {
+  if (m === "m1") return S1[id];
+  if (m === "m2") return S2[id];
+  if (S3[id] == null) return null;
+  return Math.max(0, Math.min(100, S3[id] / (+$("lecherMax").value || 100) * 100));
+}
+// Method 1: share of each Devta's zone (mandala laid on the full bounding rectangle) that lies inside the real boundary
+function ensureScores() {
+  if (!G) return;
+  const sig = JSON.stringify([poly, G.C, G.B, G.I, alpha, VW.sc, VW.ox, VW.oy]);
+  if (sig === s1sig) return; s1sig = sig;
+  const xs = poly.map(q => q.x), ys = poly.map(q => q.y), bx0 = Math.min(...xs), bx1 = Math.max(...xs), by0 = Math.min(...ys), by1 = Math.max(...ys);
+  const RTr = buildRT([{ x: bx0, y: by0 }, { x: bx1, y: by0 }, { x: bx1, y: by1 }, { x: bx0, y: by1 }], G.C);
+  const ideal = new Float64Array(46), pres = new Float64Array(46);
+  for (let sy = VW.oy + by0 * VW.sc + 1; sy < VW.oy + by1 * VW.sc; sy += 2) for (let sx = VW.ox + bx0 * VW.sc + 1; sx < VW.ox + bx1 * VW.sc; sx += 2) {
+    const wx = (sx - VW.ox) / VW.sc, wy = (sy - VW.oy) / VW.sc, dx = wx - G.C.x, dy = wy - G.C.y, dist = Math.hypot(dx, dy);
+    let id = 1;
+    if (dist > 1e-9) { let ga = Math.atan2(dx, -dy) / RAD; if (ga < 0) ga += 360; id = regionId(ga - alpha, dist / RTr[Math.round(ga * 4) % 1440], G.B, G.I); }
+    ideal[id]++; if (pip(poly, wx, wy)) pres[id]++;
+  }
+  S1 = new Array(46).fill(null);
+  for (let id = 1; id <= 45; id++) if (ideal[id] > 0) S1[id] = Math.round(pres[id] / ideal[id] * 1000) / 10;
+}
+function energyStats(m) {
+  const za = new Float64Array(16), zs = new Float64Array(16), cnt = new Float64Array(46);
+  let tot = 0, tn = 0;
+  for (let sy = 1.5; sy < 900; sy += 3) for (let sx = 1.5; sx < 900; sx += 3) {
+    const wx = (sx - VW.ox) / VW.sc, wy = (sy - VW.oy) / VW.sc;
+    if (!pip(poly, wx, wy)) continue;
+    const dx = wx - G.C.x, dy = wy - G.C.y, dist = Math.hypot(dx, dy);
+    let ga = Math.atan2(dx, -dy) / RAD; if (ga < 0) ga += 360;
+    const id = dist < 1e-9 ? 1 : regionId(ga - alpha, dist / G.RT[Math.round(ga * 4) % 1440], G.B, G.I), v = scoreOf(m, id);
+    cnt[id]++;
+    if (v == null) continue;
+    const z = Math.floor(((norm360(ga - alpha) + 11.25) % 360) / 22.5);
+    za[z]++; zs[z] += v; tot += v; tn++;
+  }
+  const zone = ZONES.map((nm, i) => ({ nm, v: za[i] ? zs[i] / za[i] : null }));
+  const devtas = []; for (let id = 1; id <= 45; id++) devtas.push({ id, name: NAMES[id], v: scoreOf(m, id) });
+  const zv = zone.filter(z => z.v != null).sort((a, b) => b.v - a.v);
+  return { overall: tn ? tot / tn : null, zone, devtas, best: zv[0] || null, worst: zv.length ? zv[zv.length - 1] : null };
+}
+function scoreCell(id) {
+  const v = scoreOf($("emethod").value, id), l = LV[lvOf(v)];
+  return `<td style="background:${l.c}40;font-weight:600">${fmtS(v)}</td>`;
+}
+function drawHeatLegend() {
+  const m = heatMethod(); if (!m) return;
+  const it = [["strong", "80-100 Strong"], ["mod", "50-79 Moderate"], ["low", "0-49 Needs attention"], ["none", "No data"]];
+  const w = 200, h = 28 + it.length * 18, bx = VW.ox + 12, by = VW.oy + world.h * VW.sc - h - 12;
+  ctx.fillStyle = "rgba(255,255,255,.93)"; ctx.fillRect(bx, by, w, h); ctx.strokeStyle = "#999"; ctx.lineWidth = 1; ctx.strokeRect(bx, by, w, h);
+  ctx.fillStyle = "#333"; ctx.font = "bold 11px system-ui"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(METHODS[m].split(" (")[0], bx + 8, by + 12);
+  it.forEach(([k, t], i) => { ctx.fillStyle = LV[k].c; ctx.fillRect(bx + 8, by + 24 + i * 18, 14, 12); ctx.fillStyle = "#333"; ctx.font = "11px system-ui"; ctx.fillText(t, bx + 28, by + 30 + i * 18); });
+}
+function methodNote(m) {
+  return m === "m1" ? "Pada-based: % of each Devta's zone (mandala laid on the full bounding rectangle) that lies inside the boundary. 100 = zone fully present; lower = cut or missing portion."
+    : m === "m2" ? "Vastu assessment: scores typed in by the consultant for each Devta (room use, entrance, openings and other conditions)."
+    : `Lecher antenna: consultant's readings converted to 0-100 as reading / ${+$("lecherMax").value || 100} (full-scale value) x 100. Readings are entered, not computed.`;
+}
+function renderEnergy(cnv, m) {
+  const w = cnv.width, h = cnv.height, x = cnv.getContext("2d"), st = energyStats(m), L = 80, R = w - 40;
+  x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = "#fff"; x.fillRect(0, 0, w, h); x.textBaseline = "alphabetic"; x.textAlign = "left";
+  x.fillStyle = "#5b2a12"; x.font = "bold 32px system-ui, Arial"; x.fillText("Vastu Energy Field Analysis", L, 46);
+  x.fillStyle = "#333"; x.font = "19px system-ui, Arial"; x.fillText(METHODS[m], L, 76);
+  x.fillStyle = "#8a4b1f"; x.font = "15px system-ui, Arial"; x.fillText("Symbolic scores (0-100) from the selected methodology - not measured energy.", L, 100);
+  const ov = st.overall, lv = LV[lvOf(ov)];
+  x.fillStyle = lv.c; x.fillRect(L, 122, 14, 72);
+  x.fillStyle = "#111"; x.font = "bold 40px system-ui, Arial"; const ot = ov == null ? "Overall: no data" : "Overall score: " + Math.round(ov) + " / 100", otw = x.measureText(ot).width; x.fillText(ot, L + 28, 168);
+  x.font = "22px system-ui, Arial"; x.fillStyle = "#444"; x.fillText(ov == null ? "" : "- " + lv.t, L + 28 + otw + 18, 168);
+  x.font = "17px system-ui, Arial"; x.fillStyle = "#444";
+  x.fillText(st.best ? `Strongest direction: ${st.best.nm} (${Math.round(st.best.v)})     Weakest direction: ${st.worst.nm} (${Math.round(st.worst.v)})` : "No directional data yet.", L + 28, 192);
+  function bars(items, top, ph, title, tall) {
+    const n = items.length, slot = (R - L) / n, bw = slot * 0.7, base = top + ph, Y = v => base - v / 100 * ph;
+    x.fillStyle = "#000"; x.font = "bold 22px system-ui, Arial"; x.textAlign = "left"; x.fillText(title, L, top - 22);
+    x.font = "13px system-ui, Arial"; x.textAlign = "right"; x.textBaseline = "middle";
+    for (let v = 0; v <= 100; v += 20) { x.strokeStyle = "#ececec"; x.lineWidth = 1; x.beginPath(); x.moveTo(L, Y(v)); x.lineTo(R, Y(v)); x.stroke(); x.fillStyle = "#777"; x.fillText(v, L - 8, Y(v)); }
+    [[80, LV.strong.c], [50, LV.low.c]].forEach(([v, c]) => { x.strokeStyle = c; x.lineWidth = 1.5; x.setLineDash([8, 5]); x.beginPath(); x.moveTo(L, Y(v)); x.lineTo(R, Y(v)); x.stroke(); x.setLineDash([]); });
+    items.forEach((it, i) => {
+      const bx = L + i * slot + (slot - bw) / 2;
+      if (it.v == null) { x.fillStyle = LV.none.c; x.fillRect(bx, base - 4, bw, 4); }
+      else { const bh = it.v / 100 * ph; x.fillStyle = LV[lvOf(it.v)].c; rrect(x, bx, base - bh, bw, bh, Math.min(6, bw / 3)); x.fill();
+        x.fillStyle = "#222"; x.font = (tall ? 12 : 15) + "px system-ui, Arial"; x.textAlign = "center"; x.textBaseline = "bottom"; x.fillText(Math.round(it.v), bx + bw / 2, base - bh - 3); }
+      x.fillStyle = "#222"; x.font = (tall ? 13 : 16) + "px system-ui, Arial";
+      if (tall) { x.save(); x.translate(bx + bw / 2 + 4, base + 8); x.rotate(-Math.PI / 2); x.textAlign = "right"; x.textBaseline = "middle"; x.fillText(it.label, 0, 0); x.restore(); }
+      else { x.textAlign = "center"; x.textBaseline = "top"; x.fillText(it.label, bx + bw / 2, base + 10); }
+    });
+    x.strokeStyle = "#8a7a66"; x.lineWidth = 1.5; x.beginPath(); x.moveTo(L, base); x.lineTo(R, base); x.stroke();
+  }
+  bars(st.devtas.map(d => ({ v: d.v, label: d.id + "  " + d.name })), 270, 400, "45 Devta scores", true);
+  bars(st.zone.map(z => ({ v: z.v, label: z.nm })), 940, 300, "16 directional zones - area-weighted average of the Devta scores in each zone", false);
+  x.textBaseline = "middle"; x.textAlign = "left"; x.font = "16px system-ui, Arial"; let lx = L; const ly = h - 52;
+  [["strong", "80-100 Strong"], ["mod", "50-79 Moderate"], ["low", "0-49 Needs attention"], ["none", "No data"]].forEach(([k, t]) => { x.fillStyle = LV[k].c; x.fillRect(lx, ly - 9, 18, 18); x.fillStyle = "#444"; x.fillText(t, lx + 26, ly); lx += 26 + t.length * 9 + 34; });
+  x.fillStyle = "#888"; x.font = "13px system-ui, Arial"; x.fillText(methodNote(m), L, h - 22);
+}
+function weakList(m) {
+  const w = energyStats(m).devtas.filter(d => d.v != null && d.v < 50).sort((a, b) => a.v - b.v);
+  return w.length ? `Needs attention (score below 50): ` + w.map(d => `${d.id} ${d.name} (${Math.round(d.v)})`).join(", ") : "";
+}
+function updateEnergy() {
+  const w = $("dEn"), on = G && confirmed; w.style.display = on ? "block" : "none";
+  if (!on || !w.open) return;
+  const m = $("emethod").value; renderEnergy($("en"), m);
+  $("enList").textContent = (METHODS[m] + ". " + (weakList(m) || (energyStats(m).overall == null ? "No scores entered for this method yet." : "No Devta below 50.")));
+}
+$("dEn").addEventListener("toggle", () => { if ($("dEn").open) { updateEnergy(); updateEntryTable(); } });
+(function buildEntry() {
+  let h = ""; for (let id = 1; id <= 45; id++) h += `<tr><td>${id}</td><td>${NAMES[id]}</td><td id="e1_${id}">-</td><td><input type="number" min="0" max="100" step="1" data-m="2" data-id="${id}" style="width:80px"></td><td><input type="number" step="any" data-m="3" data-id="${id}" style="width:80px"></td><td id="eh_${id}" style="font-size:11px"></td></tr>`;
+  $("entryT").querySelector("tbody").innerHTML = h;
+  $("entryT").addEventListener("input", e => {
+    const t = e.target, id = +t.dataset.id; if (!id) return;
+    let v = t.value === "" ? null : parseFloat(t.value); if (v != null && isNaN(v)) v = null;
+    if (t.dataset.m === "2") S2[id] = v == null ? null : Math.max(0, Math.min(100, v)); else S3[id] = v;
+    refresh();
+  });
+  $("clrS2").onclick = () => { S2.fill(null); document.querySelectorAll('#entryT input[data-m="2"]').forEach(i => i.value = ""); refresh(); };
+  $("clrS3").onclick = () => { S3.fill(null); document.querySelectorAll('#entryT input[data-m="3"]').forEach(i => i.value = ""); refresh(); };
+  $("enPng").onclick = () => { if (!G || !confirmed) { $("live").textContent = "Press OK on the boundary first."; return; } const c = document.createElement("canvas"); c.width = 1600; c.height = 1450; renderEnergy(c, $("emethod").value); c.toBlob(b => dl(b, "vastu_energy_field_" + $("emethod").value + ".png")); };
+})();
+function updateEntryTable() {
+  if (!G || !confirmed || !$("dEn").open) return;
+  const IT = itemsByDevta();
+  for (let id = 1; id <= 45; id++) {
+    const c = $("e1_" + id), v = S1[id]; c.textContent = fmtS(v); c.style.background = LV[lvOf(v)].c + "40";
+    $("eh_" + id).textContent = (IT.get(id) || []).join("; ");
+  }
+}
 
 // ---------- rotate plan ----------
 function setRot(nr) {
@@ -569,46 +796,60 @@ function wrapTxt(s, n) {
   if (line) out.push(line);
   return out.length ? out : [""];
 }
-function buildPDF(pages, img) {
+function buildPDF(pages, imgs) {
   const enc = s => { const a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i) & 255; return a; };
   const chunks = [], offs = []; let len = 0;
   const push = b => { if (typeof b === "string") b = enc(b); chunks.push(b); len += b.length; };
   const obj = (n, ...parts) => { offs[n] = len; push(n + " 0 obj\n"); parts.forEach(push); push("\nendobj\n"); };
-  const n = pages.length;
+  const n = pages.length, N = imgs.length, P0 = 5 + N;
   push("%PDF-1.4\n");
   obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
-  obj(2, "<< /Type /Pages /Count " + n + " /Kids [" + pages.map((_, i) => (6 + 2 * i) + " 0 R").join(" ") + "] >>");
+  obj(2, "<< /Type /Pages /Count " + n + " /Kids [" + pages.map((_, i) => (P0 + 2 * i) + " 0 R").join(" ") + "] >>");
   obj(3, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
   obj(4, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
-  if (img) obj(5, "<< /Type /XObject /Subtype /Image /Width " + img.w + " /Height " + img.h + " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + img.bytes.length + " >>\nstream\n", img.bytes, "\nendstream");
-  else obj(5, "null");
+  imgs.forEach((img, k) => obj(5 + k, "<< /Type /XObject /Subtype /Image /Width " + img.w + " /Height " + img.h + " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + img.bytes.length + " >>\nstream\n", img.bytes, "\nendstream"));
+  const xo = imgs.map((_, k) => "/Im" + (k + 1) + " " + (5 + k) + " 0 R").join(" ");
   pages.forEach((c, i) => {
-    obj(6 + 2 * i, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Im1 5 0 R >> >> /Contents " + (7 + 2 * i) + " 0 R >>");
-    const body = enc(c); obj(7 + 2 * i, "<< /Length " + body.length + " >>\nstream\n", body, "\nendstream");
+    obj(P0 + 2 * i, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << " + xo + " >> >> /Contents " + (P0 + 2 * i + 1) + " 0 R >>");
+    const body = enc(c); obj(P0 + 2 * i + 1, "<< /Length " + body.length + " >>\nstream\n", body, "\nendstream");
   });
-  const total = 6 + 2 * n, xrefAt = len;
+  const total = P0 + 2 * n, xrefAt = len;
   let x = "xref\n0 " + total + "\n0000000000 65535 f \n";
   for (let i = 1; i < total; i++) x += String(offs[i]).padStart(10, "0") + " 00000 n \n";
   push(x + "trailer\n<< /Size " + total + " /Root 1 0 R >>\nstartxref\n" + xrefAt + "\n%%EOF");
   return new Blob(chunks, { type: "application/pdf" });
 }
-function exportPDF() {
-  if (!G || !confirmed) { $("live").textContent = "Mark and confirm the boundary first (press OK), then save the PDF."; return; }
-  // hi-res snapshot of the marked plan
-  HI = true; cv.width = cv.height = 1800; ctx.setTransform(2, 0, 0, 2, 0, 0); draw();
+function toBytes(u) { const b = atob(u.split(",")[1]), a = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+function snapPlan(heat) {   // hi-res snapshot of the marked plan; heat = "" (group colours) or m1/m2/m3
+  HEATM = heat || ""; HI = true; cv.width = cv.height = 1800; ctx.setTransform(2, 0, 0, 2, 0, 0); draw();
   const sw = world.w * VW.sc * 2, sh = world.h * VW.sc * 2, tmp = document.createElement("canvas");
   tmp.width = Math.round(sw); tmp.height = Math.round(sh);
   const t = tmp.getContext("2d"); t.fillStyle = "#fff"; t.fillRect(0, 0, tmp.width, tmp.height);
   t.drawImage(cv, VW.ox * 2, VW.oy * 2, sw, sh, 0, 0, tmp.width, tmp.height);
   const url = tmp.toDataURL("image/jpeg", 0.92);
-  HI = false; cv.width = cv.height = 900; ctx.setTransform(1, 0, 0, 1, 0, 0); refresh();
-  const bin = atob(url.split(",")[1]), bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  HI = false; HEATM = null; cv.width = cv.height = 900; ctx.setTransform(1, 0, 0, 1, 0, 0);
+  return { url, w: tmp.width, h: tmp.height };
+}
+function exportPDF() {
+  if (!G || !confirmed) { $("live").textContent = "Mark and confirm the boundary first (press OK), then save the PDF."; return; }
+  const imgs = [], addImg = (url, w, h) => { imgs.push({ bytes: toBytes(url), w, h }); return imgs.length; };
+  const base = snapPlan(""), planIdx = addImg(base.url, base.w, base.h);
+  const cc = document.createElement("canvas"); cc.width = 1600; cc.height = 1700; refresh(); renderChart(cc, regionTable());
+  const areaIdx = addImg(cc.toDataURL("image/jpeg", 0.92), 1600, 1700);
+  const active = ["m1"]; if (S2.some(v => v != null)) active.push("m2"); if (S3.some(v => v != null)) active.push("m3");
+  const eng = active.map(m => {
+    const hm = snapPlan(m), heat = addImg(hm.url, hm.w, hm.h); refresh();
+    const ec = document.createElement("canvas"); ec.width = 1600; ec.height = 1450; renderEnergy(ec, m);
+    return { m, heat, hw: hm.w, hh: hm.h, en: addImg(ec.toDataURL("image/jpeg", 0.92), 1600, 1450), st: energyStats(m), weak: weakList(m), note: methodNote(m) };
+  });
+  refresh();
 
   const PW = 595, PH = 842, M = 40, pages = []; let cur = [], y = PH - M;
   const esc = s => latin(s).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
   const T = (x, yy, s, size = 9, bold = false) => cur.push(`BT /F${bold ? 2 : 1} ${size} Tf ${x} ${yy.toFixed(1)} Td (${esc(s)}) Tj ET`);
   const newPage = () => { pages.push(cur.join("\n")); cur = []; y = PH - M; };
   const H1 = s => { if (y - 40 < M) newPage(); y -= 18; T(M, y, s, 12, true); y -= 6; };
+  const para = (s, n, size = 8) => wrapTxt(s, n).forEach(l => { y -= size + 3; T(M, y, l, size); });
   function table(heads, xs, ns, rows) {
     const lh = 10.5, hOf = cells => Math.max(...cells.map((c, i) => wrapTxt(c, ns[i]).length)) * lh + 4;
     const row = (cells, bold, shade) => {
@@ -626,15 +867,35 @@ function exportPDF() {
   [`North angle: ${alpha} deg clockwise from plan top   |   Plan rotation: ${rot} deg`,
    `Centre: ${$("manC").checked ? "manual" : "area centroid"}   |   Brahma radius ${G.B}   |   Inner ring radius ${G.I}`,
    `Boundary area: ${G.ft ? areaStr(G.area) + " sq ft" : "scale not set (percentages only)"}`].forEach(f => { y -= 12; T(M, y, f, 9); });
-  const sc = Math.min((PW - 2 * M) / tmp.width, (y - M - 40) / tmp.height), iw = tmp.width * sc, ih = tmp.height * sc;
-  y -= 10 + ih; cur.push(`q ${iw.toFixed(1)} 0 0 ${ih.toFixed(1)} ${M} ${y.toFixed(1)} cm /Im1 Do Q`);
+  const sc = Math.min((PW - 2 * M) / base.w, (y - M - 150) / base.h), iw = base.w * sc, ih = base.h * sc;
+  y -= 10 + ih; cur.push(`q ${iw.toFixed(1)} 0 0 ${ih.toFixed(1)} ${M} ${y.toFixed(1)} cm /Im${planIdx} Do Q`);
   y -= 12; T(M, y, "Legend: gold = Brahma (1), green = inner 12 Devtas (2-13), blue = outer 32 Devtas (14-45). Red numbers = Devta numbers.", 8);
+  y -= 16; for (let r = 0; r < 9; r++) { for (let c = 0; c < 5; c++) { const id = r * 5 + c + 1; T(M + c * 104, y, String(id).padStart(2, "0") + ". " + NAMES[id], 9); } y -= 12; }
   newPage();
+
+  { const cw = PW - 2 * M, ch = cw * 1700 / 1600; y -= ch; cur.push(`q ${cw.toFixed(1)} 0 0 ${ch.toFixed(1)} ${M} ${y.toFixed(1)} cm /Im${areaIdx} Do Q`); newPage(); }
+
+  // energy field analysis: 2 pages per method (heat map, then graphs)
+  const chip = (hex, x0, y0) => { const [r, g, b] = hex2rgb(hex); cur.push(`${(r / 255).toFixed(3)} ${(g / 255).toFixed(3)} ${(b / 255).toFixed(3)} rg ${x0} ${y0.toFixed(1)} 10 10 re f 0 g`); };
+  eng.forEach(e => {
+    y -= 14; T(M, y, "Vastu Energy Field Analysis - Heat map", 16, true);
+    y -= 14; T(M, y, METHODS[e.m], 10, true);
+    y -= 12; T(M, y, "Symbolic scores (0-100) from the selected methodology - not measured energy.", 8);
+    const s2 = Math.min((PW - 2 * M) / e.hw, (y - M - 95) / e.hh), iw2 = e.hw * s2, ih2 = e.hh * s2;
+    y -= 8 + ih2; cur.push(`q ${iw2.toFixed(1)} 0 0 ${ih2.toFixed(1)} ${M} ${y.toFixed(1)} cm /Im${e.heat} Do Q`);
+    y -= 16; let lx = M;
+    [["strong", "80-100 Strong"], ["mod", "50-79 Moderate"], ["low", "0-49 Needs attention"], ["none", "No data"]].forEach(([k, t]) => { chip(LV[k].c, lx, y - 1); T(lx + 14, y, t, 8); lx += 14 + t.length * 4.6 + 18; });
+    y -= 6; para(e.note, 125);
+    newPage();
+    { const cw = PW - 2 * M, ch = cw * 1450 / 1600; y -= ch; cur.push(`q ${cw.toFixed(1)} 0 0 ${ch.toFixed(1)} ${M} ${y.toFixed(1)} cm /Im${e.en} Do Q`); }
+    y -= 4; para(e.weak || (e.st.overall == null ? "No scores entered for this method." : "No Devta below 50."), 125);
+    newPage();
+  });
 
   const IT = itemsByDevta(), TB = regionTable();
   H1("Devta summary - all Devtas inside the boundary");
-  table(["#", "Devta", "Group", "Area %", "Area sq ft", "Zone", "Points / rooms located here"], [40, 62, 140, 205, 250, 300, 335], [3, 16, 12, 7, 8, 5, 46],
-    TB.map(r => [r.id, r.name, r.group, r.pct.toFixed(1), areaStr(r.u2), r.zone, (IT.get(r.id) || []).join("; ")]));
+  table(["#", "Devta", "Group", "Area %", "Area sq ft", "Zone", "Pada score", "Vastu score", "Lecher score", "Points / rooms located here"], [40, 58, 126, 183, 220, 260, 290, 326, 362, 400], [3, 14, 11, 6, 7, 5, 6, 6, 6, 34],
+    TB.map(r => [r.id, r.name, r.group, r.pct.toFixed(1), areaStr(r.u2), r.zone, fmtS(S1[r.id]), fmtS(S2[r.id]), fmtS(scoreOf("m3", r.id)), (IT.get(r.id) || []).join("; ")]));
   H1("Marked points (doors, kitchen, toilet, etc.)");
   const P = pointRows();
   if (P.length) table(["Label", "Type", "#", "Devta", "Zone", "Bearing", "Sector"], [40, 150, 215, 240, 320, 365, 420], [22, 12, 3, 16, 6, 9, 6], P.map(r => r.slice(0, 7).map((v, i) => i === 5 && v !== "-" ? v + " deg" : v)));
@@ -645,7 +906,7 @@ function exportPDF() {
   else { y -= 12; T(M, y, "No rooms marked.", 9); }
   pages.push(cur.join("\n"));
   const out = pages.map((c, i) => c + `\nBT /F1 7 Tf ${PW / 2 - 25} 22 Td (Page ${i + 1} of ${pages.length}) Tj ET`);
-  dl(buildPDF(out, { bytes, w: tmp.width, h: tmp.height }), "devta_marking_report.pdf");
+  dl(buildPDF(out, imgs), "devta_marking_report.pdf");
   $("live").textContent = "PDF report downloaded.";
 }
 $("pdf").onclick = exportPDF;
@@ -655,15 +916,15 @@ $("ftW").addEventListener("input", () => {
   const v = +$("ftW").value || 0;
   if (v > 0 && poly.length >= 3) { const xs = poly.map(p => p.x); ftScale = v / (Math.max(...xs) - Math.min(...xs)); } else ftScale = 0;
 });
-for (const id of ["op","manC","bR","iR","ftW","lblMode","showChakra","show32","ck","mode"]) $(id).addEventListener("input", refresh);
+for (const id of ["op","manC","bR","iR","ftW","maxF","minF","heat","emethod","lecherMax","lblMode","showChakra","show32","ck","mode"]) $(id).addEventListener("input", refresh);
 $("clr").onclick = () => { pts.length = 0; rooms.length = 0; counter = 0; refresh(); };
 function dl(blob, name) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); }
 $("png").onclick = () => cv.toBlob(b => dl(b, "devta_marking.png"));
 $("csv").onclick = () => {
   if (!G || !confirmed) return;
   const q = v => '"' + String(v).replace(/"/g, '""') + '"';
-  let s = "North_angle_deg," + alpha + "\n\nDevta_no,Devta,Group,Area_pct,Area_sqft,Zone16\n";
-  for (const t of regionTable()) s += [t.id, t.name, t.group, t.pct.toFixed(2), areaStr(t.u2), t.zone].map(q).join(",") + "\n";
+  let s = "North_angle_deg," + alpha + "\n\nDevta_no,Devta,Group,Area_pct,Area_sqft,Zone16,Pada_score,Vastu_score,Lecher_reading,Lecher_score\n";
+  for (const t of regionTable()) s += [t.id, t.name, t.group, t.pct.toFixed(2), areaStr(t.u2), t.zone, fmtS(scoreOf("m1", t.id)), fmtS(S2[t.id]), S3[t.id] == null ? "-" : S3[t.id], fmtS(scoreOf("m3", t.id))].map(q).join(",") + "\n";
   s += "\nPoint,Type,Devta_no,Devta,Zone16,Bearing,Sector\n";
   for (const r of pointRows()) s += r.slice(0, 7).map(q).join(",") + "\n";
   s += "\nRoom,Type,Area_sqft,CentreZone,DevtaShare,ZoneShare\n";
